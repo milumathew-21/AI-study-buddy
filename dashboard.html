@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Learning Dashboard - Progress Tracker</title>
 <style>
+/* (unchanged styling from your enhanced dashboard; same as earlier) */
 * {margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px;}
 .dashboard-container{max-width:1200px;margin:0 auto;}
@@ -35,12 +36,25 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea
 .badge-item .badge-desc{font-size:0.75rem;margin-top:5px;opacity:0.8;}
 .badge-item.locked{opacity:0.5;}
 .badge-item.locked .badge-icon{filter:grayscale(100%);}
+
+/* Tooltip for locked badges - small progress indicator */
+.badge-tooltip{
+  position:absolute;
+  bottom:10px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,0.7);
+  color:white;padding:6px 8px;border-radius:6px;font-size:12px;display:none;
+}
+.badge-item.locked:hover .badge-tooltip{display:block;}
+
 .progress-section{margin-top:30px;}
 .progress-item{margin-bottom:25px;}
 .progress-header{display:flex;justify-content:space-between;margin-bottom:8px;}
 .progress-header span{font-weight:bold;color:#333;}
 .progress-bar{width:100%;height:25px;background:#e0e0e0;border-radius:12px;overflow:hidden;position:relative;}
 .progress-fill{height:100%;background:linear-gradient(90deg,#667eea 0%,#764ba2 100%);transition:width 1s ease;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;color:white;font-size:0.85rem;font-weight:bold;}
+
 .chart-container{background:white;padding:25px;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,0.2);margin-bottom:30px;}
 .activity-log{max-height:400px;overflow-y:auto;}
 .activity-item{padding:15px;border-left:4px solid #667eea;background:#f9f9f9;margin-bottom:15px;border-radius:8px;transition:all 0.3s;}
@@ -52,8 +66,8 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea
 .streak-number{font-size:4rem;font-weight:bold;text-shadow:2px 2px 4px rgba(0,0,0,0.3);}
 .streak-label{font-size:1.2rem;margin-top:10px;}
 .weekly-chart{display:flex;align-items:flex-end;justify-content:space-around;height:200px;gap:10px;padding:20px;background:#f9f9f9;border-radius:10px;}
-.chart-bar{flex:1;background:linear-gradient(180deg,#667eea 0%,#764ba2 100%);border-radius:8px 8px 0 0;position:relative;min-height:20px;transition:all 1s ease;cursor:pointer;}
-.chart-bar:hover{opacity:0.8;transform:translateY(-5px);}
+.chart-bar{flex:1;background:linear-gradient(180deg,#667eea 0%,#764ba2 100%);border-radius:8px 8px 0 0;position:relative;min-height:20px;transition:all 1s ease;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;}
+.chart-bar .inner{width:100%;background:rgba(255,255,255,0.12);height:0;transition:height 1s ease;border-radius:8px 8px 0 0;display:flex;align-items:flex-end;justify-content:center;}
 .chart-bar-label{position:absolute;bottom:-25px;left:50%;transform:translateX(-50%);font-size:0.8rem;color:#666;white-space:nowrap;}
 .chart-bar-value{position:absolute;top:-25px;left:50%;transform:translateX(-50%);font-weight:bold;color:#667eea;font-size:0.9rem;}
 .achievements-summary{display:flex;gap:20px;flex-wrap:wrap;margin-top:20px;}
@@ -179,7 +193,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea
 </div>
 
 <script>
-// ----- BADGES -----
+/* ---------- Badges definitions ---------- */
 const badges = [
     {id:'first_session',name:'First Steps',desc:'Complete first study session',icon:'🎯',condition:(d)=>d.totalSessions>=1},
     {id:'early_bird',name:'Early Bird',desc:'Study before 9 AM',icon:'🌅',condition:(d)=>d.hasEarlySession},
@@ -195,7 +209,7 @@ const badges = [
     {id:'super_learner',name:'Super Learner',desc:'Complete 20 sessions',icon:'🌟',condition:(d)=>d.totalSessions>=20}
 ];
 
-// ----- USER DATA -----
+/* ---------- User data (default) ---------- */
 let userData = {
     totalSessions: 0,
     totalMinutes: 0,
@@ -210,17 +224,21 @@ let userData = {
     hasLateSession: false,
     perfectWeek: false,
     weeklyData: [0,0,0,0,0,0,0],
-    recentActivities: []
+    recentActivities: [],
+    lastStudyDate: null
 };
 
-// Load saved data
+/* ---------- Load from storage ---------- */
 function loadUserData(){
     const saved = localStorage.getItem('studyDashboardData');
-    if(saved){userData = JSON.parse(saved);}
+    if(saved){
+        try{ userData = JSON.parse(saved); }catch(e){ console.warn('Corrupt data, resetting.'); localStorage.removeItem('studyDashboardData'); }
+    }
     updateDashboard();
 }
+loadUserData();
 
-// ----- UPDATE DASHBOARD -----
+/* ---------- Update dashboard ---------- */
 function updateDashboard(){
     const hours = Math.floor(userData.totalMinutes/60);
     const mins = userData.totalMinutes%60;
@@ -228,31 +246,33 @@ function updateDashboard(){
     document.getElementById('avgFocus').textContent = `${userData.avgFocus}%`;
     document.getElementById('totalSessions').textContent = userData.totalSessions;
     document.getElementById('currentStreak').textContent = userData.currentStreak;
-    
+
     document.getElementById('badgesEarned').textContent = `${badges.filter(b=>b.condition(userData)).length}/12`;
-    
+
     updateProgressBar('focusFill','focusMastery',Math.min(100,userData.avgFocus));
     updateProgressBar('consistencyFill','consistencyScore',Math.min(100,(userData.currentStreak/7)*100));
     updateProgressBar('timeFill','timeManagement',Math.min(100,(userData.totalMinutes/600)*100));
-    
+
     document.getElementById('bestStreak').textContent = userData.bestStreak;
     document.getElementById('longestSession').textContent = `${userData.longestSession}m`;
     document.getElementById('gamesPlayed').textContent = userData.gamesPlayed;
-    
+
     populateBadges();
     populateWeeklyChart();
     populateActivityLog();
 }
 
-// ----- PROGRESS BAR -----
+/* ---------- Progress bar helper ---------- */
 function updateProgressBar(fillId,textId,value){
     const fill = document.getElementById(fillId);
     const text = document.getElementById(textId);
     fill.style.width = '0%';
-    setTimeout(()=>{fill.style.width = `${value}%`; fill.textContent = `${Math.round(value)}%`; text.textContent = `${Math.round(value)}%`;},100);
+    fill.textContent = '0%';
+    text.textContent = '0%';
+    setTimeout(()=>{ fill.style.width = `${Math.round(value)}%`; fill.textContent = `${Math.round(value)}%`; text.textContent = `${Math.round(value)}%`; },80);
 }
 
-// ----- BADGES -----
+/* ---------- Badges ---------- */
 function populateBadges(){
     const grid = document.getElementById('badgesGrid');
     grid.innerHTML = '';
@@ -260,18 +280,192 @@ function populateBadges(){
         const unlocked = b.condition(userData);
         const div = document.createElement('div');
         div.className = `badge-item ${unlocked?'unlocked':'locked'}`;
-        div.title = unlocked?'Unlocked':b.desc;
+        div.title = unlocked ? `${b.name} - Unlocked` : b.desc;
         div.innerHTML = `<div class="badge-icon">${b.icon}</div><div class="badge-name">${b.name}</div><div class="badge-desc">${b.desc}</div>`;
-        div.onclick = ()=>alert(unlocked?`🎉 ${b.name}\n\n${b.desc}\n✓ Unlocked!`:`🔒 ${b.name}\n\n${b.desc}\n❌ Not unlocked yet`);
+        // Tooltip for locked badge showing progress (simple heuristic)
+        if(!unlocked){
+            const tooltip = document.createElement('div');
+            tooltip.className = 'badge-tooltip';
+            tooltip.textContent = getBadgeProgressText(b);
+            div.appendChild(tooltip);
+        }
+        div.addEventListener('click', ()=> {
+            if(b.condition(userData)){
+                alert(`🎉 ${b.name}\n\n${b.desc}\n\n✓ Unlocked!`);
+            } else {
+                alert(`🔒 ${b.name}\n\n${b.desc}\n\nProgress: ${getBadgeProgressText(b)}`);
+            }
+        });
         grid.appendChild(div);
     });
 }
 
-// ----- WEEKLY CHART -----
+function getBadgeProgressText(badge){
+    // Provide approximate progress for locked badges
+    const d = userData;
+    switch(badge.id){
+        case 'first_session': return `${Math.min(100, Math.round((d.totalSessions/1)*100))}%`;
+        case 'time_master': return `${Math.min(100, Math.round((d.totalMinutes/120)*100))}%`;
+        case 'game_lover': return `${Math.min(100, Math.round((d.gamesPlayed/5)*100))}%`;
+        case 'break_master': return `${Math.min(100, Math.round((d.breaksOaken/10)*100))}%`;
+        case 'marathon': return `${Math.min(100, Math.round((d.longestSession/60)*100))}%`;
+        case 'streak_3': return `${Math.min(100, Math.round((d.currentStreak/3)*100))}%`;
+        case 'streak_7': return `${Math.min(100, Math.round((d.currentStreak/7)*100))}%`;
+        case 'super_learner': return `${Math.min(100, Math.round((d.totalSessions/20)*100))}%`;
+        case 'focused_mind': return `${Math.min(100, Math.round((d.bestFocus/90)*100))}%`;
+        default: return '0%';
+    }
+}
+
+/* ---------- Weekly chart ---------- */
 function populateWeeklyChart(){
     const chart = document.getElementById('weeklyChart');
     chart.innerHTML = '';
     const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    const max = Math.max(...userData.weeklyData,1);
-    userData.weeklyData.forEach((m,i)=>{
-        const bar =
+    const maxVal = Math.max(...userData.weeklyData,1);
+    userData.weeklyData.forEach((mins, idx) => {
+        const heightPct = (mins / maxVal) * 100;
+        const bar = document.createElement('div');
+        bar.className = 'chart-bar';
+        bar.innerHTML = `<div class="inner" style="height:${heightPct}%"></div><div class="chart-bar-value">${mins}m</div><div class="chart-bar-label">${days[idx]}</div>`;
+        bar.onclick = ()=> alert(`${days[idx]}: ${mins} minutes studied`);
+        chart.appendChild(bar);
+        // animate inner filler after append
+        setTimeout(()=> { bar.querySelector('.inner').style.height = `${heightPct}%`; }, 80);
+    });
+}
+
+/* ---------- Activity log ---------- */
+function populateActivityLog(){
+    const log = document.getElementById('activityLog');
+    log.innerHTML = '';
+    if(!userData.recentActivities || userData.recentActivities.length === 0){
+        log.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">No recent activity yet. Start studying to see your progress!</p>';
+        return;
+    }
+    userData.recentActivities.forEach(a => {
+        const div = document.createElement('div');
+        div.className = 'activity-item';
+        div.innerHTML = `<div class="activity-time">${a.date}</div><div class="activity-desc">${a.desc}</div>${a.focus ? `<div class="activity-stats">Focus Score: ${a.focus}%</div>` : ''}`;
+        log.appendChild(div);
+    });
+}
+
+/* ---------- Export / Clear ---------- */
+function exportReport(){
+    const report = `
+LEARNING PROGRESS REPORT
+Generated: ${new Date().toLocaleString()}
+
+Total Study Time: ${Math.floor(userData.totalMinutes/60)}h ${userData.totalMinutes%60}m
+Total Sessions: ${userData.totalSessions}
+Average Focus: ${userData.avgFocus}%
+Current Streak: ${userData.currentStreak}
+Best Streak: ${userData.bestStreak}
+Longest Session: ${userData.longestSession} minutes
+Badges Earned: ${badges.filter(b=>b.condition(userData)).length}/12
+Brain Games Played: ${userData.gamesPlayed}
+Healthy Breaks Taken: ${userData.breaksOaken}
+    `;
+    const blob = new Blob([report], {type:'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `learning-report-${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function clearData(){
+    if(confirm('⚠️ Are you sure you want to clear all progress data? This cannot be undone.')){
+        localStorage.removeItem('studyDashboardData');
+        userData = {
+            totalSessions: 0,
+            totalMinutes: 0,
+            currentStreak: 0,
+            bestStreak: 0,
+            longestSession: 0,
+            avgFocus: 0,
+            gamesPlayed: 0,
+            breaksOaken: 0,
+            bestFocus: 0,
+            hasEarlySession: false,
+            hasLateSession: false,
+            perfectWeek: false,
+            weeklyData: [0,0,0,0,0,0,0],
+            recentActivities: [],
+            lastStudyDate: null
+        };
+        updateDashboard();
+        alert('✅ Data cleared.');
+    }
+}
+
+/* ---------- saveSessionData (called by live3.html) ---------- */
+function saveSessionData(sessionData){
+    // sessionData: {minutes, focus, gamesPlayed, breaks}
+    userData.totalSessions = (userData.totalSessions || 0) + 1;
+    userData.totalMinutes = (userData.totalMinutes || 0) + (sessionData.minutes || 0);
+    userData.longestSession = Math.max(userData.longestSession || 0, sessionData.minutes || 0);
+    // average focus recalculation
+    const prevSessions = Math.max(0, (userData.totalSessions-1));
+    userData.avgFocus = Math.round(((userData.avgFocus || 0) * prevSessions + (sessionData.focus || 0)) / (prevSessions + 1));
+    userData.bestFocus = Math.max(userData.bestFocus || 0, sessionData.focus || 0);
+    userData.gamesPlayed = (userData.gamesPlayed || 0) + (sessionData.gamesPlayed || 0);
+    userData.breaksOaken = (userData.breaksOaken || 0) + (sessionData.breaks || 0);
+
+    // set early/late session flags
+    try{
+        const dt = new Date();
+        const hrs = dt.getHours();
+        if(hrs < 9) userData.hasEarlySession = true;
+        if(hrs >= 21) userData.hasLateSession = true;
+    }catch(e){}
+
+    // weekly data: update today's entry
+    const today = new Date().getDay(); // 0 (Sun) - 6
+    const dayIndex = today === 0 ? 6 : today - 1; // convert to Mon=0
+    userData.weeklyData[dayIndex] = (userData.weeklyData[dayIndex] || 0) + (sessionData.minutes || 0);
+
+    // streak handling
+    const last = userData.lastStudyDate ? new Date(userData.lastStudyDate) : null;
+    const todayDate = new Date(); todayDate.setHours(0,0,0,0);
+    if(!last){
+        userData.currentStreak = 1;
+        userData.bestStreak = Math.max(userData.bestStreak || 0, 1);
+    } else {
+        const lastDate = new Date(last); lastDate.setHours(0,0,0,0);
+        const diffDays = Math.round((todayDate - lastDate)/(1000*60*60*24));
+        if(diffDays === 0){
+            // same day - no change
+        } else if(diffDays === 1){
+            userData.currentStreak = (userData.currentStreak || 0) + 1;
+            userData.bestStreak = Math.max(userData.bestStreak || 0, userData.currentStreak);
+        } else {
+            userData.currentStreak = 1;
+        }
+    }
+    userData.lastStudyDate = new Date().toISOString();
+
+    // perfect week heuristic: if all days >0 in weeklyData
+    userData.perfectWeek = userData.weeklyData.every(v => v > 0);
+
+    // recent activity
+    userData.recentActivities = userData.recentActivities || [];
+    userData.recentActivities.unshift({
+        date: new Date().toLocaleString(),
+        desc: `Completed ${sessionData.minutes}-min study session`,
+        focus: sessionData.focus
+    });
+    if(userData.recentActivities.length > 20) userData.recentActivities = userData.recentActivities.slice(0,20);
+
+    // persist
+    localStorage.setItem('studyDashboardData', JSON.stringify(userData));
+    updateDashboard();
+}
+
+/* Expose globally for other pages */
+window.saveSessionData = saveSessionData;
+</script>
+</body>
+</html>
