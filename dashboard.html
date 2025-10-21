@@ -84,44 +84,44 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea
 <body>
 <div class="dashboard-container">
     <div class="header">
-        <h1>📊 Learning Dashboard</h1>
+        <h1> Learning Dashboard</h1>
         <p>Track your amazing study journey!</p>
     </div>
 
     <div class="nav-buttons">
-        <button class="nav-btn active" onclick="window.location.reload()">📊 Dashboard</button>
-        <button class="nav-btn" onclick="window.location.href='live3.html'">📚 Study Mode</button>
-        <button class="nav-btn" onclick="exportReport()">📥 Export Report</button>
+        <button class="nav-btn active" onclick="window.location.reload()">Dashboard</button>
+        <button class="nav-btn" onclick="window.location.href='live3.html'">Study Mode</button>
+        <button class="nav-btn" onclick="exportReport()"> Export Report</button>
         <button class="nav-btn" style="background:#ef4444;color:white;" onclick="clearData()">🗑️ Clear Data</button>
     </div>
 
     <div class="streak-display">
         <div class="streak-number" id="currentStreak">0</div>
-        <div class="streak-label">🔥 Day Study Streak</div>
+        <div class="streak-label"> Day Study Streak</div>
         <p style="margin-top:10px;font-size:0.9rem;">Keep it up! You're doing great!</p>
     </div>
 
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="icon">⏱️</div>
+            <div class="icon"></div>
             <div class="label">Total Study Time</div>
             <div class="value" id="totalTime">0h 0m</div>
             <div class="subtext">All time</div>
         </div>
         <div class="stat-card">
-            <div class="icon">🎯</div>
+            <div class="icon"></div>
             <div class="label">Average Focus</div>
             <div class="value" id="avgFocus">0%</div>
             <div class="subtext">Last 7 sessions</div>
         </div>
         <div class="stat-card">
-            <div class="icon">📖</div>
+            <div class="icon"></div>
             <div class="label">Study Sessions</div>
             <div class="value" id="totalSessions">0</div>
             <div class="subtext">Completed</div>
         </div>
         <div class="stat-card">
-            <div class="icon">🏆</div>
+            <div class="icon"></div>
             <div class="label">Badges Earned</div>
             <div class="value" id="badgesEarned">0</div>
             <div class="subtext">Out of 12</div>
@@ -129,17 +129,17 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea
     </div>
 
     <div class="card">
-        <h2>🏅 Achievement Badges</h2>
+        <h2> Achievement Badges</h2>
         <div class="badges-grid" id="badgesGrid"></div>
     </div>
 
     <div class="card">
-        <h2>📈 Weekly Study Progress</h2>
+        <h2> Weekly Study Progress</h2>
         <div class="weekly-chart" id="weeklyChart"></div>
     </div>
 
     <div class="card">
-        <h2>🎓 Learning Progress</h2>
+        <h2> Learning Progress</h2>
         <div class="progress-section">
             <div class="progress-item">
                 <div class="progress-header">
@@ -469,3 +469,4 @@ window.saveSessionData = saveSessionData;
 </script>
 </body>
 </html>
+
