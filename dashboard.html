@@ -76,7 +76,8 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea
 
     <div class="nav-buttons">
         <button class="nav-btn active" onclick="window.location.reload()">📊 Dashboard</button>
-        <button class="nav-btn" onclick="alert('Open your Study Mode page to start a session!')">📚 Study Mode</button>
+      <button class="nav-btn" onclick="window.location.href='live3.html'">📚 Study Mode</button>
+
         <button class="nav-btn" onclick="exportReport()">📥 Export Report</button>
         <button class="nav-btn" style="background:#ef4444;color:white;" onclick="clearData()">🗑️ Clear Data</button>
     </div>
@@ -455,4 +456,5 @@ loadUserData();
 window.saveSessionData = saveSessionData;
 </script>
 </body>
+
 </html>
