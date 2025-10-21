@@ -579,6 +579,25 @@ window.startSession = startSession;
 window.stopSession = stopSession;
 window.saveSessionData = function(){ alert('This page stores sessions to dashboard automatically when you stop a session.'); };
 
+function saveSessionData(session) {
+  let sessions = JSON.parse(localStorage.getItem("studySessions") || "[]");
+  sessions.push(session);
+  localStorage.setItem("studySessions", JSON.stringify(sessions));
+}
+
+// Example test call (remove this after verifying)
+document.getElementById("endSessionBtn").addEventListener("click", function() {
+  saveSessionData({
+    duration: 1, // minutes
+    focus: 90,   // percent
+    breaksTaken: 0,
+    timestamp: Date.now(),
+  });
+  alert("Session saved! Check your dashboard.");
+});
+
+
 </script>
 </body>
 </html>
+
