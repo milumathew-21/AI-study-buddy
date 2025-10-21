@@ -174,89 +174,79 @@ button{flex:1;min-width:120px;padding:15px 20px;border:none;border-radius:8px;fo
 </div>
 
 <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+
 <script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const statusBadge = document.getElementById('statusBadge');
+const statusText = document.getElementById('statusText');
+const sessionTimeDisplay = document.getElementById('sessionTime');
+const videoOverlay = document.getElementById('videoOverlay');
+const soundBtn = document.getElementById('soundBtn');
+const earMeter = document.getElementById('earMeter');
+const motivationalMsg = document.getElementById('motivationalMsg');
+const emotionEmoji = document.getElementById('emotionEmoji');
+const emotionLabel = document.getElementById('emotionLabel');
+const focusScore = document.getElementById('focusScore');
+const studyStreak = document.getElementById('studyStreak');
+const breakSuggestion = document.getElementById('breakSuggestion');
+const breakReason = document.getElementById('breakReason');
+const minigameModal = document.getElementById('minigameModal');
+const achievementPopup = document.getElementById('achievementPopup');
+const achievementTitle = document.getElementById('achievementTitle');
+const achievementText = document.getElementById('achievementText');
+const endBreakBtn = document.getElementById('endBreakBtn');
+
 let isRunning=false, isSoundOn=true, eyesClosed=false, sessionTime=0;
 let detectionInterval=null, sessionInterval=null;
 let audioContext=null, alarmOsc=null, alarmGain=null;
 let currentEmotion='neutral', focusLevel=100, drowsinessCount=0, distractionCount=0;
 let lastBreakTime=0, breakTimer=null, isOnBreak=false, breakTimeRemaining=0;
-let studyStreakMinutes=0, totalFocusTime=0, achievements={milestone5:false,milestone15:false,milestone30:false,perfectFocus:false};
-let gamesPlayedInSession=0, breaksaken=0;
-
+let studyStreakMinutes=0;
 const EAR_THRESHOLD = 0.25, CLOSED_FRAMES_THRESHOLD = 5;
 const BREAK_INTERVAL = 25*60;
-const DROWSINESS_THRESHOLD=3, DISTRACTION_THRESHOLD=5;
 let closedFrames=0, lookingAwayFrames=0;
+const motivationalMsgs = ["Keep your eyes on the goal!","Focus mode activated!","You got this!","Stay sharp!","Eyes open, brain active!","Excellent concentration!","You're doing amazing!","Great work!"];
+const emotionMap = {
+    neutral:{emoji:'😊',label:'Focused'},
+    happy:{emoji:'😄',label:'Energetic'},
+    sad:{emoji:'😔',label:'Tired'},
+    angry:{emoji:'😠',label:'Frustrated'},
+    surprised:{emoji:'😮',label:'Alert'},
+    fearful:{emoji:'😰',label:'Anxious'},
+    disgusted:{emoji:'😒',label:'Bored'}
+};
 
-// ... your existing functions here ...
+// ---------- Camera + session start ----------
+async function startSession(){
+    isRunning=true;
+    startBtn.disabled=true;
+    stopBtn.disabled=false;
+    videoOverlay.classList.add('hidden');
+    statusText.textContent='Initializing camera...';
 
-function startMinigame(){
-    minigameModal.classList.add('show');
-    initGame();
-    gamesPlayedInSession++; // track game played
+    try{
+        const stream = await navigator.mediaDevices.getUserMedia({video:true});
+        video.srcObject = stream;
+        await video.play();
+        statusText.textContent='Camera started. Detection running...';
+    }catch(err){
+        alert("Unable to access camera: "+err.message);
+        isRunning=false;
+        startBtn.disabled=false;
+        stopBtn.disabled=true;
+        return;
+    }
+
+    sessionTime=0;
+    sessionInterval=setInterval(()=>{sessionTime++;updateSessionTime();},1000);
 }
 
-function acceptBreak(){
-    isOnBreak=true;
-    breakSuggestion.classList.remove('show');
-    drowsinessCount=0;
-    distractionCount=0;
-    breakTimeRemaining=3*60;
-    breaksaken++; // track break taken
-    
-    statusText.textContent='☕ On 3-minute break - Quick refresh!';
-    motivationalMsg.textContent='⏸️ Break Mode: Relax or play a game!';
-    statusBadge.textContent='💤 BREAK';
-    statusBadge.className='status-badge';
-    statusBadge.style.background='#f59e0b';
-    
-    endBreakBtn.style.display='flex';
-    
-    setTimeout(()=>{
-        if(isOnBreak && confirm('Want to play a quick memory game to refresh your brain? 🧠')){
-            startMinigame();
-        }
-    },500);
-    
-    breakTimer=setTimeout(()=>{
-        if(!isRunning) return;
-        endBreakEarly();
-    },3*60*1000);
-}
-
-// ... rest of your JS functions ...
-
-function stopSession() {
-    if(video.srcObject) video.srcObject.getTracks().forEach(track=>track.stop());
-    if(detectionInterval) clearInterval(detectionInterval);
-    if(sessionInterval) clearInterval(sessionInterval);
-    if(breakTimer) clearTimeout(breakTimer);
-
-    stopAlarm();
-    isRunning=false; eyesClosed=false; closedFrames=0;
-    startBtn.disabled=false; stopBtn.disabled=true;
-    videoOverlay.classList.remove('hidden');
-    breakSuggestion.classList.remove('show');
-    endBreakBtn.style.display='none';
-    statusText.textContent='Session stopped';
-    statusBadge.textContent='✓ SAFE';
-    statusBadge.className='status-badge safe';
-    earMeter.style.width='0%';
-    motivationalMsg.textContent='Session Ended. Well Done!';
-
-    const mins=Math.floor(sessionTime/60);
-    const avgFocus=Math.round(focusLevel);
-    const achievementCount=Object.values(achievements).filter(a=>a).length;
-
-    // Save session data including games and breaks
-    const sessionData={minutes:mins,focus:avgFocus,gamesPlayed:gamesPlayedInSession,breaksTaken:breaksaken};
-    localStorage.setItem('latestSession',JSON.stringify(sessionData));
-
-    setTimeout(()=>{
-        alert(`📊 Session Summary:\n\n⏱️ Study Time: ${mins} minutes\n🎯 Final Focus: ${avgFocus}%\n🎮 Games Played: ${gamesPlayedInSession}\n☕ Breaks Taken: ${breaksaken}\n🏆 Achievements: ${achievementCount}\n\nGreat work! Keep it up!`);
-    },500);
-}
-</script>
-</body>
-</html>
-
+// ---------- Session Timer ----------
+function updateSessionTime(){
+    const h=Math.floor(sessionTime/3600);
+    const m=Math.floor((sessionTime%3600)/60);
+    const s=session
