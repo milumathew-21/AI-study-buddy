@@ -175,509 +175,88 @@ button{flex:1;min-width:120px;padding:15px 20px;border:none;border-radius:8px;fo
 
 <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 <script>
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const statusBadge = document.getElementById('statusBadge');
-const statusText = document.getElementById('statusText');
-const sessionTimeDisplay = document.getElementById('sessionTime');
-const videoOverlay = document.getElementById('videoOverlay');
-const soundBtn = document.getElementById('soundBtn');
-const earMeter = document.getElementById('earMeter');
-const motivationalMsg = document.getElementById('motivationalMsg');
-const emotionEmoji = document.getElementById('emotionEmoji');
-const emotionLabel = document.getElementById('emotionLabel');
-const focusScore = document.getElementById('focusScore');
-const studyStreak = document.getElementById('studyStreak');
-const breakSuggestion = document.getElementById('breakSuggestion');
-const breakReason = document.getElementById('breakReason');
-const minigameModal = document.getElementById('minigameModal');
-const achievementPopup = document.getElementById('achievementPopup');
-const achievementTitle = document.getElementById('achievementTitle');
-const achievementText = document.getElementById('achievementText');
-const endBreakBtn = document.getElementById('endBreakBtn');
-
 let isRunning=false, isSoundOn=true, eyesClosed=false, sessionTime=0;
 let detectionInterval=null, sessionInterval=null;
 let audioContext=null, alarmOsc=null, alarmGain=null;
 let currentEmotion='neutral', focusLevel=100, drowsinessCount=0, distractionCount=0;
 let lastBreakTime=0, breakTimer=null, isOnBreak=false, breakTimeRemaining=0;
-let studyStreakMinutes=0, totalFocusTime=0;
-let achievements = {milestone5:false, milestone15:false, milestone30:false, perfectFocus:false};
+let studyStreakMinutes=0, totalFocusTime=0, achievements={milestone5:false,milestone15:false,milestone30:false,perfectFocus:false};
+let gamesPlayedInSession=0, breaksaken=0;
 
 const EAR_THRESHOLD = 0.25, CLOSED_FRAMES_THRESHOLD = 5;
-const BREAK_INTERVAL = 25 * 60; // 25 minutes (Pomodoro style)
-const DROWSINESS_THRESHOLD = 3, DISTRACTION_THRESHOLD = 5;
+const BREAK_INTERVAL = 25*60;
+const DROWSINESS_THRESHOLD=3, DISTRACTION_THRESHOLD=5;
 let closedFrames=0, lookingAwayFrames=0;
 
-const motivationalMsgs = ["Keep your eyes on the goal!","Focus mode activated!","You got this!","Stay sharp!","Eyes open, brain active!","Excellent concentration!","You're doing amazing!","Great work!"];
-const emotionMap = {
-    neutral: {emoji:'😊',label:'Focused'},
-    happy: {emoji:'😄',label:'Energetic'},
-    sad: {emoji:'😔',label:'Tired'},
-    angry: {emoji:'😠',label:'Frustrated'},
-    surprised: {emoji:'😮',label:'Alert'},
-    fearful: {emoji:'😰',label:'Anxious'},
-    disgusted: {emoji:'😒',label:'Bored'}
-};
+// ... your existing functions here ...
 
-async function startSession(){
-    try{
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480 }});
-        video.srcObject = stream;
-        isRunning=true;
-        startBtn.disabled=true;
-        stopBtn.disabled=false;
-        videoOverlay.classList.add('hidden');
-        statusText.textContent='Camera started, initializing detection...';
-
-        await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
-        await faceapi.nets.faceLandmark68TinyNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
-        await faceapi.nets.faceExpressionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
-
-        startEyeDetection();
-        sessionTime=0;
-        lastBreakTime=0;
-        drowsinessCount=0;
-        distractionCount=0;
-        sessionInterval=setInterval(()=>{ 
-            sessionTime++; 
-            updateSessionTime(); 
-            checkBreakNeeded();
-            updateStudyStreak();
-        },1000);
-        
-        // Add click interactions to emotion cards
-        document.querySelectorAll('.emotion-card').forEach(card=>{
-            card.addEventListener('click', ()=>{
-                card.style.transform = 'scale(1.05)';
-                setTimeout(()=>{card.style.transform = 'translateY(0)';}, 200);
-            });
-        });
-    }catch(err){
-        alert('Unable to access camera: '+err.message);
-    }
+function startMinigame(){
+    minigameModal.classList.add('show');
+    initGame();
+    gamesPlayedInSession++; // track game played
 }
 
-function stopSession(){
+function acceptBreak(){
+    isOnBreak=true;
+    breakSuggestion.classList.remove('show');
+    drowsinessCount=0;
+    distractionCount=0;
+    breakTimeRemaining=3*60;
+    breaksaken++; // track break taken
+    
+    statusText.textContent='☕ On 3-minute break - Quick refresh!';
+    motivationalMsg.textContent='⏸️ Break Mode: Relax or play a game!';
+    statusBadge.textContent='💤 BREAK';
+    statusBadge.className='status-badge';
+    statusBadge.style.background='#f59e0b';
+    
+    endBreakBtn.style.display='flex';
+    
+    setTimeout(()=>{
+        if(isOnBreak && confirm('Want to play a quick memory game to refresh your brain? 🧠')){
+            startMinigame();
+        }
+    },500);
+    
+    breakTimer=setTimeout(()=>{
+        if(!isRunning) return;
+        endBreakEarly();
+    },3*60*1000);
+}
+
+// ... rest of your JS functions ...
+
+function stopSession() {
     if(video.srcObject) video.srcObject.getTracks().forEach(track=>track.stop());
     if(detectionInterval) clearInterval(detectionInterval);
     if(sessionInterval) clearInterval(sessionInterval);
-    if(breakTimer){
-        clearTimeout(breakTimer);
-        isOnBreak = false;
-        // In study mode, when session stops:
-window.saveSessionData({
-    minutes: Math.floor(sessionTime/60),
-    focus: Math.round(focusLevel),
-    gamesPlayed: gamesPlayedInSession,
-    breaks: breaksaken
-});
-    }
+    if(breakTimer) clearTimeout(breakTimer);
 
     stopAlarm();
     isRunning=false; eyesClosed=false; closedFrames=0;
     startBtn.disabled=false; stopBtn.disabled=true;
     videoOverlay.classList.remove('hidden');
     breakSuggestion.classList.remove('show');
-    endBreakBtn.style.display = 'none';
+    endBreakBtn.style.display='none';
     statusText.textContent='Session stopped';
     statusBadge.textContent='✓ SAFE';
     statusBadge.className='status-badge safe';
     earMeter.style.width='0%';
     motivationalMsg.textContent='Session Ended. Well Done!';
-    
-    const mins = Math.floor(sessionTime/60);
-    const avgFocus = Math.round(focusLevel);
-    const achievementCount = Object.values(achievements).filter(a=>a).length;
-    
+
+    const mins=Math.floor(sessionTime/60);
+    const avgFocus=Math.round(focusLevel);
+    const achievementCount=Object.values(achievements).filter(a=>a).length;
+
+    // Save session data including games and breaks
+    const sessionData={minutes:mins,focus:avgFocus,gamesPlayed:gamesPlayedInSession,breaksTaken:breaksaken};
+    localStorage.setItem('latestSession',JSON.stringify(sessionData));
+
     setTimeout(()=>{
-        alert(`📊 Session Summary:\n\n⏱️ Study Time: ${mins} minutes\n🎯 Final Focus: ${avgFocus}%\n🏆 Achievements: ${achievementCount}\n\nGreat work! Keep it up!`);
-    }, 500);
+        alert(`📊 Session Summary:\n\n⏱️ Study Time: ${mins} minutes\n🎯 Final Focus: ${avgFocus}%\n🎮 Games Played: ${gamesPlayedInSession}\n☕ Breaks Taken: ${breaksaken}\n🏆 Achievements: ${achievementCount}\n\nGreat work! Keep it up!`);
+    },500);
 }
-
-function toggleSound(){
-    isSoundOn=!isSoundOn;
-    soundBtn.textContent=isSoundOn?'🔊 Sound ON':'🔇 Sound OFF';
-    soundBtn.classList.toggle('disabled');
-}
-
-function updateSessionTime(){
-    const hrs=Math.floor(sessionTime/3600);
-    const mins=Math.floor((sessionTime%3600)/60);
-    const secs=sessionTime%60;
-    sessionTimeDisplay.textContent=`${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
-}
-
-function updateStudyStreak(){
-    if(isRunning){
-        if(isOnBreak){
-            const mins = Math.floor(breakTimeRemaining / 60);
-            const secs = breakTimeRemaining % 60;
-            studyStreak.textContent = `🔄 ${mins}:${String(secs).padStart(2,'0')}`;
-            if(breakTimeRemaining > 0){
-                breakTimeRemaining--;
-            }
-        }else{
-            studyStreakMinutes = Math.floor((sessionTime - lastBreakTime)/60);
-            studyStreak.textContent = `${studyStreakMinutes} min`;
-            
-            // Check achievements
-            if(studyStreakMinutes === 5 && !achievements.milestone5){
-                achievements.milestone5 = true;
-                showAchievement('First Milestone!', '5 minutes of focused study! 🎯');
-            }
-            if(studyStreakMinutes === 15 && !achievements.milestone15){
-                achievements.milestone15 = true;
-                showAchievement('Great Focus!', '15 minutes straight! You\'re on fire! 🔥');
-            }
-            if(studyStreakMinutes === 30 && !achievements.milestone30){
-                achievements.milestone30 = true;
-                showAchievement('Study Master!', '30 minutes of excellence! Amazing! 🌟');
-            }
-            if(focusLevel >= 95 && studyStreakMinutes >= 10 && !achievements.perfectFocus){
-                achievements.perfectFocus = true;
-                showAchievement('Perfect Focus!', 'Maintaining 95%+ focus! Incredible! 💎');
-            }
-        }
-    }
-}
-
-function showAchievement(title, text){
-    achievementTitle.textContent = title;
-    achievementText.textContent = text;
-    achievementPopup.classList.add('show');
-    setTimeout(()=>{
-        achievementPopup.classList.remove('show');
-    }, 3000);
-}
-
-function checkBreakNeeded(){
-    if(isOnBreak || !isRunning) return;
-    const timeSinceBreak = sessionTime - lastBreakTime;
-    
-    if(timeSinceBreak >= BREAK_INTERVAL || drowsinessCount >= DROWSINESS_THRESHOLD || distractionCount >= DISTRACTION_THRESHOLD){
-        suggestBreak();
-    }
-}
-
-function suggestBreak(){
-    if(breakSuggestion.classList.contains('show')) return;
-    
-    let reason = "You've been studying for 25 minutes. Time for a Pomodoro break!";
-    if(drowsinessCount >= DROWSINESS_THRESHOLD){
-        reason = "🥱 You seem drowsy. A power nap (5-15 min) or stretch will help you recharge!";
-    }else if(distractionCount >= DISTRACTION_THRESHOLD){
-        reason = "👀 You seem distracted. A quick break will help you refocus!";
-    }
-    
-    breakReason.textContent = reason;
-    breakSuggestion.classList.add('show');
-}
-
-function acceptBreak(){
-    isOnBreak = true;
-    breakSuggestion.classList.remove('show');
-    drowsinessCount = 0;
-    distractionCount = 0;
-    breakTimeRemaining = 3 * 60; // 3 minutes in seconds
-    
-    statusText.textContent = '☕ On 3-minute break - Quick refresh!';
-    motivationalMsg.textContent = '⏸️ Break Mode: Relax or play a game!';
-    statusBadge.textContent='💤 BREAK';
-    statusBadge.className='status-badge' ;
-    statusBadge.style.background='#f59e0b';
-    
-    // Show end break button
-    endBreakBtn.style.display = 'flex';
-    
-    setTimeout(()=>{
-        if(isOnBreak && confirm('Want to play a quick memory game to refresh your brain? 🧠')){
-            startMinigame();
-        }
-    }, 500);
-    
-    breakTimer = setTimeout(()=>{
-        if(!isRunning) return;
-        endBreakEarly();
-    }, 3 * 60 * 1000);
-}
-
-function endBreakEarly(){
-    if(!isOnBreak || !isRunning) return;
-    
-    if(breakTimer){
-        clearTimeout(breakTimer);
-        breakTimer = null;
-    }
-    
-    isOnBreak = false;
-    lastBreakTime = sessionTime;
-    breakTimeRemaining = 0;
-    
-    statusText.textContent = '✅ Break ended - Back to studying!';
-    motivationalMsg.textContent = 'Refreshed and ready! Let\'s focus!';
-    statusBadge.textContent='✓ SAFE';
-    statusBadge.className='status-badge safe';
-    
-    // Hide end break button
-    endBreakBtn.style.display = 'none';
-    
-    showAchievement('Back to Work!', 'Break ended. Time to focus! 📚');
-}
-
-function snoozeBreak(){
-    breakSuggestion.classList.remove('show');
-    drowsinessCount = Math.max(0, drowsinessCount - 1);
-    distractionCount = Math.max(0, distractionCount - 1);
-    setTimeout(()=>{
-        if(isRunning && !isOnBreak) suggestBreak();
-    }, 10 * 60 * 1000);
-}
-
-function declineBreak(){
-    breakSuggestion.classList.remove('show');
-    drowsinessCount = 0;
-    distractionCount = 0;
-    motivationalMsg.textContent = "Great determination! Keep up the focus!";
-}
-
-function getEAR(eye){
-    const dist=(p1,p2)=>Math.hypot(p1.x-p2.x,p1.y-p2.y);
-    const A=dist(eye[1],eye[5]), B=dist(eye[2],eye[4]), C=dist(eye[0],eye[3]);
-    return (A+B)/(2.0*C);
-}
-
-function updateEmotion(expressions){
-    if(!expressions) return;
-    
-    const emotions = Object.entries(expressions).sort((a,b)=>b[1]-a[1]);
-    const dominant = emotions[0][0];
-    
-    if(dominant !== currentEmotion && emotions[0][1] > 0.5){
-        currentEmotion = dominant;
-        const emo = emotionMap[dominant] || emotionMap.neutral;
-        emotionEmoji.textContent = emo.emoji;
-        emotionLabel.textContent = emo.label;
-        
-        if(dominant === 'sad' || dominant === 'fearful'){
-            drowsinessCount++;
-        }else if(dominant === 'angry' || dominant === 'surprised' || dominant === 'disgusted'){
-            distractionCount++;
-        }
-    }
-}
-
-function startEyeDetection(){
-    detectionInterval=setInterval(async ()=>{
-        if(!isRunning) return;
-        
-        const detections=await faceapi.detectSingleFace(video,new faceapi.TinyFaceDetectorOptions())
-            .withFaceLandmarks(true)
-            .withFaceExpressions();
-            
-        if(detections){
-            lookingAwayFrames = 0;
-            
-            updateEmotion(detections.expressions);
-            
-            const leftEye=detections.landmarks.getLeftEye();
-            const rightEye=detections.landmarks.getRightEye();
-            const ear=(getEAR(leftEye)+getEAR(rightEye))/2;
-            
-            earMeter.style.width=`${Math.min(100,(ear/0.35)*100)}%`;
-            earMeter.style.background=ear<EAR_THRESHOLD?'#ef4444':'#10b981';
-
-            focusLevel = Math.max(0, 100 - (drowsinessCount * 8) - (distractionCount * 5));
-            focusScore.textContent = `${Math.round(focusLevel)}%`;
-            
-            // Add visual feedback for focus level
-            const focusCard = focusScore.closest('.emotion-card');
-            if(focusLevel >= 80){
-                focusCard.style.background = 'linear-gradient(135deg,#10b981 0%,#059669 100%)';
-            }else if(focusLevel >= 50){
-                focusCard.style.background = 'linear-gradient(135deg,#f59e0b 0%,#d97706 100%)';
-            }else{
-                focusCard.style.background = 'linear-gradient(135deg,#ef4444 0%,#dc2626 100%)';
-            }
-
-            if(!eyesClosed && !isOnBreak && Math.random()<0.01){
-                motivationalMsg.textContent=motivationalMsgs[Math.floor(Math.random()*motivationalMsgs.length)];
-            }
-
-            if(ear<EAR_THRESHOLD){
-                closedFrames++;
-                if(closedFrames>=CLOSED_FRAMES_THRESHOLD && !eyesClosed && !isOnBreak){
-                    eyesClosed=true;
-                    drowsinessCount++;
-                    statusBadge.textContent='🚨 ALERT';
-                    statusBadge.className='status-badge alert';
-                    statusText.textContent='⚠️ Eyes closed! Wake up!';
-                    startAlarm();
-                }
-            }else{
-                closedFrames=0;
-                if(eyesClosed){
-                    eyesClosed=false;
-                    statusBadge.textContent='✓ SAFE';
-                    statusBadge.className='status-badge safe';
-                    statusText.textContent='👁️ Eyes open, great focus!';
-                    stopAlarm();
-                }
-            }
-        }else{
-            lookingAwayFrames++;
-            if(lookingAwayFrames > 30 && !isOnBreak){
-                distractionCount++;
-                statusText.textContent='👀 Face not detected - Stay focused!';
-            }
-        }
-    },100);
-}
-
-function startAlarm(){
-    if(!isSoundOn || isOnBreak) return;
-    if(!audioContext) audioContext=new (window.AudioContext||window.webkitAudioContext)();
-    alarmOsc=audioContext.createOscillator();
-    alarmGain=audioContext.createGain();
-    alarmOsc.connect(alarmGain);
-    alarmGain.connect(audioContext.destination);
-    alarmOsc.frequency.value=1000;
-    alarmGain.gain.setValueAtTime(0.5, audioContext.currentTime);
-    alarmOsc.type='sawtooth';
-    alarmOsc.start();
-}
-
-function stopAlarm(){
-    if(alarmOsc) alarmOsc.stop();
-    if(alarmGain) alarmGain.disconnect();
-    alarmOsc=null; alarmGain=null;
-}
-
-let gameCards = [], flippedCards = [], matchedPairs = 0, moves = 0;
-const emojis = ['🎯','🧠','📚','✨','🌟','💡','🚀','🎨'];
-
-function startMinigame(){
-    minigameModal.classList.add('show');
-    initGame();
-}
-
-function initGame(){
-    gameCards = [...emojis, ...emojis].sort(()=>Math.random()-0.5);
-    flippedCards = [];
-    matchedPairs = 0;
-    moves = 0;
-    
-    const grid = document.getElementById('gameGrid');
-    grid.innerHTML = '';
-    
-    gameCards.forEach((emoji, idx)=>{
-        const tile = document.createElement('div');
-        tile.className = 'game-tile';
-        tile.dataset.index = idx;
-        tile.dataset.emoji = emoji;
-        tile.textContent = '?';
-        tile.onclick = ()=>flipTile(tile);
-        grid.appendChild(tile);
-    });
-    
-    document.getElementById('moves').textContent = '0';
-    document.getElementById('matched').textContent = '0';
-}
-
-function flipTile(tile){
-    if(flippedCards.length >= 2 || tile.classList.contains('flipped') || tile.classList.contains('matched')) return;
-    
-    tile.textContent = tile.dataset.emoji;
-    tile.classList.add('flipped');
-    flippedCards.push(tile);
-    
-    if(flippedCards.length === 2){
-        moves++;
-        document.getElementById('moves').textContent = moves;
-        checkMatch();
-    }
-}
-
-function checkMatch(){
-    const [tile1, tile2] = flippedCards;
-    
-    if(tile1.dataset.emoji === tile2.dataset.emoji){
-        tile1.classList.add('matched');
-        tile2.classList.add('matched');
-        matchedPairs++;
-        document.getElementById('matched').textContent = matchedPairs;
-        flippedCards = [];
-        
-        if(matchedPairs === 8){
-            setTimeout(()=>{
-                alert(`🎉 Congratulations! You completed the game in ${moves} moves!\n\nYour brain is refreshed and ready to study!`);
-                closeGame();
-            }, 500);
-        }
-    }else{
-        setTimeout(()=>{
-            tile1.textContent = '?';
-            tile2.textContent = '?';
-            tile1.classList.remove('flipped');
-            tile2.classList.remove('flipped');
-            flippedCards = [];
-        }, 800);
-    }
-}
-
-function closeGame(){
-    minigameModal.classList.remove('show');
-}
-   
-function stopSession() {
-    // Example session data (you can connect these to your actual variables)
-    const sessionData = {
-        minutes: Math.floor(sessionDuration / 60) || 30,  // total minutes studied
-        focus: currentFocusScore || 80,                   // focus percentage (0–100)
-        gamesPlayed: totalGamesPlayed || 0,
-        breaksTaken: breaksTaken || 0
-    };
-
-    // Load previous data from localStorage
-    const dashboardData = JSON.parse(localStorage.getItem('studyDashboardData')) || {
-        totalSessions: 0,
-        totalMinutes: 0,
-        currentStreak: 0,
-        bestStreak: 0,
-        longestSession: 0,
-        avgFocus: 0,
-        gamesPlayed: 0,
-        breaksOaken: 0,
-        bestFocus: 0,
-        hasEarlySession: false,
-        hasLateSession: false,
-        perfectWeek: false,
-        weeklyData: [0,0,0,0,0,0,0],
-        recentActivities: [],
-        lastStudyDate: null
-    };
-
-    // Update the stored data
-    dashboardData.totalSessions++;
-    dashboardData.totalMinutes += sessionData.minutes;
-    dashboardData.longestSession = Math.max(dashboardData.longestSession, sessionData.minutes);
-    dashboardData.avgFocus = Math.round(
-        (dashboardData.avgFocus * (dashboardData.totalSessions - 1) + sessionData.focus) / dashboardData.totalSessions
-    );
-    dashboardData.bestFocus = Math.max(dashboardData.bestFocus, sessionData.focus);
-
-    // Save updated dashboard data
-    localStorage.setItem('studyDashboardData', JSON.stringify(dashboardData));
-
-    alert("✅ Session saved! Go check your Dashboard.");
-    window.location.href = "dashboard.html";  // Redirect to dashboard
-}
-
-
 </script>
 </body>
-
 </html>
+
