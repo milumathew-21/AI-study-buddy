@@ -52,7 +52,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea
 .streak-number{font-size:4rem;font-weight:bold;text-shadow:2px 2px 4px rgba(0,0,0,0.3);}
 .streak-label{font-size:1.2rem;margin-top:10px;}
 .weekly-chart{display:flex;align-items:flex-end;justify-content:space-around;height:200px;gap:10px;padding:20px;background:#f9f9f9;border-radius:10px;}
-.chart-bar{flex:1;background:linear-gradient(180deg,#667eea 0%,#764ba2 100%);border-radius:8px 8px 0 0;position:relative;min-height:20px;transition:all 0.3s;cursor:pointer;}
+.chart-bar{flex:1;background:linear-gradient(180deg,#667eea 0%,#764ba2 100%);border-radius:8px 8px 0 0;position:relative;min-height:20px;transition:all 1s ease;cursor:pointer;}
 .chart-bar:hover{opacity:0.8;transform:translateY(-5px);}
 .chart-bar-label{position:absolute;bottom:-25px;left:50%;transform:translateX(-50%);font-size:0.8rem;color:#666;white-space:nowrap;}
 .chart-bar-value{position:absolute;top:-25px;left:50%;transform:translateX(-50%);font-weight:bold;color:#667eea;font-size:0.9rem;}
@@ -76,8 +76,7 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea
 
     <div class="nav-buttons">
         <button class="nav-btn active" onclick="window.location.reload()">📊 Dashboard</button>
-      <button class="nav-btn" onclick="window.location.href='live3.html'">📚 Study Mode</button>
-
+        <button class="nav-btn" onclick="window.location.href='live3.html'">📚 Study Mode</button>
         <button class="nav-btn" onclick="exportReport()">📥 Export Report</button>
         <button class="nav-btn" style="background:#ef4444;color:white;" onclick="clearData()">🗑️ Clear Data</button>
     </div>
@@ -117,16 +116,12 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea
 
     <div class="card">
         <h2>🏅 Achievement Badges</h2>
-        <div class="badges-grid" id="badgesGrid">
-            <!-- Badges will be populated here -->
-        </div>
+        <div class="badges-grid" id="badgesGrid"></div>
     </div>
 
     <div class="card">
         <h2>📈 Weekly Study Progress</h2>
-        <div class="weekly-chart" id="weeklyChart">
-            <!-- Chart bars will be populated here -->
-        </div>
+        <div class="weekly-chart" id="weeklyChart"></div>
     </div>
 
     <div class="card">
@@ -179,14 +174,12 @@ body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#667eea
 
     <div class="card">
         <h2>📝 Recent Activity</h2>
-        <div class="activity-log" id="activityLog">
-            <!-- Activity items will be populated here -->
-        </div>
+        <div class="activity-log" id="activityLog"></div>
     </div>
 </div>
 
 <script>
-// Badge definitions
+// ----- BADGES -----
 const badges = [
     {id:'first_session',name:'First Steps',desc:'Complete first study session',icon:'🎯',condition:(d)=>d.totalSessions>=1},
     {id:'early_bird',name:'Early Bird',desc:'Study before 9 AM',icon:'🌅',condition:(d)=>d.hasEarlySession},
@@ -202,7 +195,7 @@ const badges = [
     {id:'super_learner',name:'Super Learner',desc:'Complete 20 sessions',icon:'🌟',condition:(d)=>d.totalSessions>=20}
 ];
 
-// Simulated data - in real app, this would be loaded from storage
+// ----- USER DATA -----
 let userData = {
     totalSessions: 0,
     totalMinutes: 0,
@@ -216,42 +209,19 @@ let userData = {
     hasEarlySession: false,
     hasLateSession: false,
     perfectWeek: false,
-    weeklyData: [0,0,0,0,0,0,0], // Last 7 days
+    weeklyData: [0,0,0,0,0,0,0],
     recentActivities: []
 };
 
-// Load data from localStorage or initialize empty
+// Load saved data
 function loadUserData(){
     const saved = localStorage.getItem('studyDashboardData');
-    if(saved){
-        userData = JSON.parse(saved);
-        console.log('✅ Loaded user data:', userData);
-    }else{
-        // Initialize with empty data - no demo
-        userData = {
-            totalSessions: 0,
-            totalMinutes: 0,
-            currentStreak: 0,
-            bestStreak: 0,
-            longestSession: 0,
-            avgFocus: 0,
-            gamesPlayed: 0,
-            breaksOaken: 0,
-            bestFocus: 0,
-            hasEarlySession: false,
-            hasLateSession: false,
-            perfectWeek: false,
-            weeklyData: [0,0,0,0,0,0,0],
-            recentActivities: [],
-            lastStudyDate: null
-        };
-        console.log('📝 Initialized empty dashboard - start studying to see your progress!');
-    }
+    if(saved){userData = JSON.parse(saved);}
     updateDashboard();
 }
 
+// ----- UPDATE DASHBOARD -----
 function updateDashboard(){
-    // Update stats
     const hours = Math.floor(userData.totalMinutes/60);
     const mins = userData.totalMinutes%60;
     document.getElementById('totalTime').textContent = `${hours}h ${mins}m`;
@@ -259,202 +229,49 @@ function updateDashboard(){
     document.getElementById('totalSessions').textContent = userData.totalSessions;
     document.getElementById('currentStreak').textContent = userData.currentStreak;
     
-    // Calculate unlocked badges
-    const unlockedCount = badges.filter(b=>b.condition(userData)).length;
-    document.getElementById('badgesEarned').textContent = `${unlockedCount}/12`;
+    document.getElementById('badgesEarned').textContent = `${badges.filter(b=>b.condition(userData)).length}/12`;
     
-    // Update progress bars
-    const focusMastery = Math.min(100, (userData.avgFocus/100)*100);
-    const consistency = Math.min(100, (userData.currentStreak/7)*100);
-    const timeManage = Math.min(100, (userData.totalMinutes/600)*100);
+    updateProgressBar('focusFill','focusMastery',Math.min(100,userData.avgFocus));
+    updateProgressBar('consistencyFill','consistencyScore',Math.min(100,(userData.currentStreak/7)*100));
+    updateProgressBar('timeFill','timeManagement',Math.min(100,(userData.totalMinutes/600)*100));
     
-    updateProgressBar('focusFill','focusMastery',focusMastery);
-    updateProgressBar('consistencyFill','consistencyScore',consistency);
-    updateProgressBar('timeFill','timeManagement',timeManage);
-    
-    // Update achievement boxes
     document.getElementById('bestStreak').textContent = userData.bestStreak;
     document.getElementById('longestSession').textContent = `${userData.longestSession}m`;
     document.getElementById('gamesPlayed').textContent = userData.gamesPlayed;
     
-    // Populate badges
     populateBadges();
-    
-    // Populate weekly chart
     populateWeeklyChart();
-    
-    // Populate activity log
     populateActivityLog();
 }
 
-function updateProgressBar(fillId, textId, percentage){
+// ----- PROGRESS BAR -----
+function updateProgressBar(fillId,textId,value){
     const fill = document.getElementById(fillId);
     const text = document.getElementById(textId);
-    const rounded = Math.round(percentage);
-    
-    setTimeout(()=>{
-        fill.style.width = `${rounded}%`;
-        fill.textContent = `${rounded}%`;
-        text.textContent = `${rounded}%`;
-    },100);
+    fill.style.width = '0%';
+    setTimeout(()=>{fill.style.width = `${value}%`; fill.textContent = `${Math.round(value)}%`; text.textContent = `${Math.round(value)}%`;},100);
 }
 
+// ----- BADGES -----
 function populateBadges(){
     const grid = document.getElementById('badgesGrid');
     grid.innerHTML = '';
-    
-    badges.forEach(badge=>{
-        const unlocked = badge.condition(userData);
+    badges.forEach(b=>{
+        const unlocked = b.condition(userData);
         const div = document.createElement('div');
         div.className = `badge-item ${unlocked?'unlocked':'locked'}`;
-        div.innerHTML = `
-            <div class="badge-icon">${badge.icon}</div>
-            <div class="badge-name">${badge.name}</div>
-            <div class="badge-desc">${badge.desc}</div>
-        `;
-        div.onclick = ()=>{
-            alert(unlocked 
-                ? `🎉 ${badge.name}\n\n${badge.desc}\n\n✓ Unlocked!`
-                : `🔒 ${badge.name}\n\n${badge.desc}\n\n❌ Not unlocked yet. Keep studying!`
-            );
-        };
+        div.title = unlocked?'Unlocked':b.desc;
+        div.innerHTML = `<div class="badge-icon">${b.icon}</div><div class="badge-name">${b.name}</div><div class="badge-desc">${b.desc}</div>`;
+        div.onclick = ()=>alert(unlocked?`🎉 ${b.name}\n\n${b.desc}\n✓ Unlocked!`:`🔒 ${b.name}\n\n${b.desc}\n❌ Not unlocked yet`);
         grid.appendChild(div);
     });
 }
 
+// ----- WEEKLY CHART -----
 function populateWeeklyChart(){
     const chart = document.getElementById('weeklyChart');
     chart.innerHTML = '';
-    
     const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-    const maxValue = Math.max(...userData.weeklyData, 1);
-    
-    userData.weeklyData.forEach((mins, idx)=>{
-        const height = (mins/maxValue)*100;
-        const bar = document.createElement('div');
-        bar.className = 'chart-bar';
-        bar.style.height = `${height}%`;
-        bar.innerHTML = `
-            <div class="chart-bar-value">${mins}m</div>
-            <div class="chart-bar-label">${days[idx]}</div>
-        `;
-        bar.onclick = ()=>{
-            alert(`${days[idx]}: ${mins} minutes studied`);
-        };
-        chart.appendChild(bar);
-    });
-}
-
-function populateActivityLog(){
-    const log = document.getElementById('activityLog');
-    log.innerHTML = '';
-    
-    if(userData.recentActivities.length === 0){
-        log.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">No recent activity yet. Start studying to see your progress!</p>';
-        return;
-    }
-    
-    userData.recentActivities.forEach(activity=>{
-        const div = document.createElement('div');
-        div.className = 'activity-item';
-        div.innerHTML = `
-            <div class="activity-time">${activity.date}</div>
-            <div class="activity-desc">${activity.desc}</div>
-            ${activity.focus ? `<div class="activity-stats">Focus Score: ${activity.focus}%</div>` : ''}
-        `;
-        log.appendChild(div);
-    });
-}
-
-function goToStudyMode(){
-    alert('Redirecting to Study Mode... (In real app, this would navigate to the study page)');
-    // window.location.href = 'study-mode.html';
-}
-
-function clearData(){
-    if(confirm('⚠️ Are you sure you want to clear all progress data?\n\nThis will delete:\n- All study sessions\n- Badges earned\n- Activity history\n- Statistics\n\nThis action cannot be undone!')){
-        localStorage.removeItem('studyDashboardData');
-        alert('✅ All data cleared! Refresh the page to see empty dashboard.');
-        window.location.reload();
-    }
-}
-
-function exportReport(){
-    const report = `
-📊 LEARNING PROGRESS REPORT
-========================
-
-👤 Student Performance Summary
-Generated: ${new Date().toLocaleString()}
-
-📈 STATISTICS
--------------
-Total Study Time: ${Math.floor(userData.totalMinutes/60)}h ${userData.totalMinutes%60}m
-Total Sessions: ${userData.totalSessions}
-Average Focus: ${userData.avgFocus}%
-Current Streak: ${userData.currentStreak} days
-Best Streak: ${userData.bestStreak} days
-Longest Session: ${userData.longestSession} minutes
-
-🏆 ACHIEVEMENTS
---------------
-Badges Earned: ${badges.filter(b=>b.condition(userData)).length}/12
-Brain Games Played: ${userData.gamesPlayed}
-Healthy Breaks Taken: ${userData.breaksOaken}
-
-📊 PROGRESS SCORES
------------------
-Focus Mastery: ${Math.round((userData.avgFocus/100)*100)}%
-Consistency: ${Math.round((userData.currentStreak/7)*100)}%
-Time Management: ${Math.round((userData.totalMinutes/600)*100)}%
-
-Keep up the great work! 🌟
-    `;
-    
-    const blob = new Blob([report], {type: 'text/plain'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `learning-report-${new Date().toISOString().split('T')[0]}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-}
-
-// Add function to save session data from study mode
-function saveSessionData(sessionData){
-    userData.totalSessions++;
-    userData.totalMinutes += sessionData.minutes;
-    userData.longestSession = Math.max(userData.longestSession, sessionData.minutes);
-    userData.avgFocus = Math.round((userData.avgFocus * (userData.totalSessions-1) + sessionData.focus) / userData.totalSessions);
-    userData.bestFocus = Math.max(userData.bestFocus, sessionData.focus);
-    userData.gamesPlayed += sessionData.gamesPlayed || 0;
-    userData.breaksOaken += sessionData.breaks || 0;
-    
-    // Update weekly data (current day)
-    const today = new Date().getDay();
-    const dayIndex = today === 0 ? 6 : today - 1; // Convert Sunday=0 to Monday=0
-    userData.weeklyData[dayIndex] += sessionData.minutes;
-    
-    // Add to recent activities
-    userData.recentActivities.unshift({
-        date: new Date().toLocaleString(),
-        desc: `Completed ${sessionData.minutes}-min study session`,
-        focus: sessionData.focus
-    });
-    
-    if(userData.recentActivities.length > 10){
-        userData.recentActivities = userData.recentActivities.slice(0,10);
-    }
-    
-    localStorage.setItem('studyDashboardData', JSON.stringify(userData));
-}
-
-// Initialize dashboard
-loadUserData();
-
-// Make saveSessionData globally available
-window.saveSessionData = saveSessionData;
-</script>
-</body>
-
-</html>
+    const max = Math.max(...userData.weeklyData,1);
+    userData.weeklyData.forEach((m,i)=>{
+        const bar =
