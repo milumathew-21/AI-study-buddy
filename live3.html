@@ -631,6 +631,53 @@ function checkMatch(){
 function closeGame(){
     minigameModal.classList.remove('show');
 }
+   
+function stopSession() {
+    // Example session data (you can connect these to your actual variables)
+    const sessionData = {
+        minutes: Math.floor(sessionDuration / 60) || 30,  // total minutes studied
+        focus: currentFocusScore || 80,                   // focus percentage (0–100)
+        gamesPlayed: totalGamesPlayed || 0,
+        breaksTaken: breaksTaken || 0
+    };
+
+    // Load previous data from localStorage
+    const dashboardData = JSON.parse(localStorage.getItem('studyDashboardData')) || {
+        totalSessions: 0,
+        totalMinutes: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        longestSession: 0,
+        avgFocus: 0,
+        gamesPlayed: 0,
+        breaksOaken: 0,
+        bestFocus: 0,
+        hasEarlySession: false,
+        hasLateSession: false,
+        perfectWeek: false,
+        weeklyData: [0,0,0,0,0,0,0],
+        recentActivities: [],
+        lastStudyDate: null
+    };
+
+    // Update the stored data
+    dashboardData.totalSessions++;
+    dashboardData.totalMinutes += sessionData.minutes;
+    dashboardData.longestSession = Math.max(dashboardData.longestSession, sessionData.minutes);
+    dashboardData.avgFocus = Math.round(
+        (dashboardData.avgFocus * (dashboardData.totalSessions - 1) + sessionData.focus) / dashboardData.totalSessions
+    );
+    dashboardData.bestFocus = Math.max(dashboardData.bestFocus, sessionData.focus);
+
+    // Save updated dashboard data
+    localStorage.setItem('studyDashboardData', JSON.stringify(dashboardData));
+
+    alert("✅ Session saved! Go check your Dashboard.");
+    window.location.href = "dashboard.html";  // Redirect to dashboard
+}
+
+
 </script>
 </body>
+
 </html>
